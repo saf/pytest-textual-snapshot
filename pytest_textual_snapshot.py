@@ -50,7 +50,7 @@ def snap_compare(
     """
 
     def compare(
-        app_path: str | PurePath,
+        app_or_path: App | str | PurePath,
         press: Iterable[str] = (),
         terminal_size: tuple[int, int] = (80, 24),
         run_before: Callable[[Pilot], Awaitable[None] | None] | None = None,
@@ -62,8 +62,8 @@ def snap_compare(
         the snapshot on disk will be updated to match the current screenshot.
 
         Args:
-            app_path (str): The path of the app. Relative paths are relative to the location of the
-                test this function is called from.
+            app_or_path (str or App): The Textual application object, or the path of the app module.
+                Relative paths are relative to the location of the test this function is called from.
             press (Iterable[str]): Key presses to run before taking screenshot. "_" is a short pause.
             terminal_size (tuple[int, int]): A pair of integers (WIDTH, HEIGHT), representing terminal size.
             run_before: An arbitrary callable that runs arbitrary code before taking the
@@ -73,18 +73,21 @@ def snap_compare(
         Returns:
             Whether the screenshot matches the snapshot.
         """
-        from textual._import_app import import_app
         node = request.node
-        path = Path(app_path)
-        if path.is_absolute():
-            # If the user supplies an absolute path, just use it directly.
-            app = import_app(str(path.resolve()))
+        if isinstance(app_or_path, App):
+            app = app_or_path
         else:
-            # If a relative path is supplied by the user, it's relative to the location of the pytest node,
-            # NOT the location that `pytest` was invoked from.
-            node_path = node.path.parent
-            resolved = (node_path / app_path).resolve()
-            app = import_app(str(resolved))
+            from textual._import_app import import_app
+            path = Path(app_or_path)
+            if path.is_absolute():
+                # If the user supplies an absolute path, just use it directly.
+                app = import_app(str(path.resolve()))
+            else:
+                # If a relative path is supplied by the user, it's relative to the location of
+                # the pytest node, NOT the location that `pytest` was invoked from.
+                node_path = node.path.parent
+                resolved = (node_path / path).resolve()
+                app = import_app(str(resolved))
 
         from textual._doc import take_svg_screenshot
         actual_screenshot = take_svg_screenshot(
